@@ -1,9 +1,9 @@
 {-# Language OverloadedStrings #-}
 
 import Control.Arrow      ((&&&), (>>>))
-import Prelude            (unlines,($),Bool (..),flip, map, uncurry, zipWith, maximum, id, (==), (>>=), putStr, IO, String , (.) )
-import Data.List          (transpose,intersperse)
-import Data.Text          (Text, lines, intercalate, length, splitOn, justifyLeft, unlines, stripEnd, pack,unpack,concat)
+import Prelude            (filter,not,unlines,($),Bool (..),flip, map, uncurry, zipWith, maximum, id, (==), (>>=), putStr, IO, String , (.) )
+import Data.List          (transpose,intersperse,filter)
+import Data.Text          (null,Text, lines, intercalate, length, splitOn, justifyLeft, unlines, stripEnd, pack,unpack,concat)
 import Data.Text.IO       (interact)
 import System.Environment (getArgs)
 import Text.Regex (splitRegex, mkRegex)
@@ -14,13 +14,12 @@ main = getArgs >>= run
 run :: [String] -> IO ()
 run []         = run ["\t"]
 run [sep]      = exec False (pack sep)
-run ["-r",sep] = exec True  (pack sep)
-run _          = putStr $ Prelude.unlines [ "Usage: tabulate [delimiter]"
-                                          , "       tabulate -r regexp"
-                                           ]
+run ["-m",sep] = exec True  (pack sep)
+run ["--many",sep] = exec True (pack sep)
+run _          = putStr $ Prelude.unlines [ "Usage: tabulate [-m --many] [delimiter]" ]
 
 exec :: Bool -> Text -> IO ()
-exec isRegexp sep = interact tabulate
+exec splitMany sep = interact tabulate
   where
     tabulate :: Text ->  Text
     tabulate  = rows >>> columns
@@ -28,8 +27,8 @@ exec isRegexp sep = interact tabulate
                      >>> uncurry (zipWith uncolumns)
                      >>> unrows
 
-    rows            = if isRegexp then lines >>> map (splitOn sep)
-                                  else lines >>> map (splitOn sep >>> Data.List.intersperse sep)
+    rows            = lines >>> map (splitOn sep >>> joinCommon >>> Data.List.intersperse sep)
+    joinCommon      = if splitMany then filter (not . null) else id
     columns         = transpose
     lengths         = map (map length >>> maximum)
     uncolumns width = map (justifyLeft width ' ')
